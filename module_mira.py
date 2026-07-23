@@ -66,5 +66,4 @@ class module_mira(GDO_Module):
 
     async def mira_is_alive(self):
         mira = await self.get_mira()
-        room = Bash.get_server().get_or_create_channel(mira.get_name())
-        await room.send_text('huhu_mira', ())
+        await mira.send('huhu_mira')

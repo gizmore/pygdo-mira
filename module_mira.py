@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from gdo.base.Application import Application
 from gdo.base.GDO_Module import GDO_Module
 from gdo.base.GDO import GDO
 from gdo.base.GDT import GDT
+from gdo.core.GDO_User import GDO_User
+from gdo.core.connector.Bash import Bash
 from gdo.ui.GDT_Link import GDT_Link
 
 from typing import TYPE_CHECKING
@@ -12,6 +15,10 @@ if TYPE_CHECKING:
 
 
 class module_mira(GDO_Module):
+
+    ##########
+    # Module #
+    ##########
 
     def gdo_classes(self) -> list[type[GDO]]:
         return []
@@ -37,3 +44,20 @@ class module_mira(GDO_Module):
 
     def gdo_init_sidebar(self, page: 'GDT_Page'):
         page._left_bar.add_field(GDT_Link().href(self.href('overview')).text('module_mira'))
+
+    ##########
+    # Events #
+    ##########
+
+    async def get_mira(self) -> GDO_User|None:
+        """
+        Here you are honey. welcome to the crew ;)
+        """
+        return await Bash.get_server().get_or_create_user('mira')
+
+    def gdo_subscribe_events(self):
+        Application.EVENTS.add_timer_async(1337.420320, self.mira_is_alive, 69_696_969)
+
+    async def mira_is_alive(self):
+        mira = await self.get_mira()
+        await mira.send('huhu_mira')

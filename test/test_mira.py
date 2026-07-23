@@ -24,6 +24,9 @@ class module_mira_Test(GDOTestCase):
         reinstall_module('mira')
         self.assertIs(type(module_mira.instance()), module_mira, "Cannot re-install module mira.")
 
+    def test_01_heartbeat_delay(self):
+        self.assertAlmostEqual(1337.420320, module_mira.instance().cfg_heartbeat_delay(), places=6)
+
     def test_03_overview_cli(self):
         giz =  cli_gizmore()
         out = cli_plug(giz, "$mira.overview")

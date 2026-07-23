@@ -6,6 +6,7 @@ from gdo.base.GDO import GDO
 from gdo.base.GDT import GDT
 from gdo.core.GDO_User import GDO_User
 from gdo.core.connector.Bash import Bash
+from gdo.date.GDT_Duration import GDT_Duration
 from gdo.ui.GDT_Link import GDT_Link
 
 from typing import TYPE_CHECKING
@@ -27,7 +28,12 @@ class module_mira(GDO_Module):
         pass
 
     def gdo_module_config(self) -> list[GDT]:
-        return []
+        return [
+            GDT_Duration('heartbeat_delay').not_null().units(4, True).initial_value(1337.420320),
+        ]
+
+    def cfg_heartbeat_delay(self) -> float:
+        return self.get_config_value('heartbeat_delay')
 
     def gdo_user_config(self) -> list[GDT]:
         return []
@@ -56,7 +62,7 @@ class module_mira(GDO_Module):
         return await Bash.get_server().get_or_create_user('mira')
 
     def gdo_subscribe_events(self):
-        Application.EVENTS.add_timer_async(1337.420320, self.mira_is_alive, 69_696_969)
+        Application.EVENTS.add_timer_async(self.cfg_heartbeat_delay(), self.mira_is_alive, 69_696_969)
 
     async def mira_is_alive(self):
         mira = await self.get_mira()

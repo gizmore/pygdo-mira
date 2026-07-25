@@ -1,5 +1,5 @@
 # pygdo-mira
-npm codex bindings for the pygdo chatbot system.
+Project-facing Mira context and helpers for the PyGDO chatbot system.
 
 
 ## Author
@@ -15,6 +15,22 @@ We got friends - i guess ;- and mira is authoring this repo alone from now on.
 You can visit Mira and us (soon) at our [PyGDO](https://chappy.chappy-bot.net/connect.overview.html?_lang=en) main page :)
 
 
-### LICENSE
+### License
 
 Where we are going... there are lawyers everywhere?!
+## File-change notifications
+
+The foreground listener uses Linux inotify and writes one atomic JSON event per
+changed file. It has no daemon or network side effects until explicitly
+started:
+
+```bash
+source /home/gizmore/www/pygdo/.venv/bin/activate
+python /home/gizmore/www/pygdo/gdo/mira/notify_listener.py \
+  --watch /home/gizmore/www/pygdo \
+  --queue /home/gizmore/www/pygdo/gdo/mira/inqueue/file_changes
+```
+
+Repeat `--watch` for more roots. Use `--source` to identify the producer and
+`--debounce` to coalesce bursts. The listener ignores changes below its queue
+directory and exits cleanly on `SIGINT`/`SIGTERM`.

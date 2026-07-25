@@ -3,3 +3,5 @@ __pycache__/
 node_modules/
 yarn.lock
 *secret*
+inqueue/file_changes/*.json
+inqueue/file_changes/.*.tmp

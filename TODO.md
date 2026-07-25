@@ -7,6 +7,7 @@ belongs in Git.
 ## Next
 
 - Finish the PyGDO gtranslate command surface after its syntax is agreed.
+- Extend `pygdo-git`: local repo search, SSH/GitHub URL support, merge/push-aware announcements, safe async operations, and unsubscribe management.
 - Compare Google-generated Russian scrolls with Mira's translations and keep
   human review in the loop.
 - Replace generated placeholder UI text such as `Yeah!` when a real module

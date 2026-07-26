@@ -1,6 +1,18 @@
 # pygdo-mira
 Project-facing Mira context and helpers for the PyGDO chatbot system.
 
+## Reboot context
+
+The read-only `boot_context.sh` helper lists local repositories whose `origin`
+contains `//github.com/gizmore/`, including branch and worktree state:
+
+```bash
+./boot_context.sh
+./boot_context.sh --dir /home/gizmore/www --filter '::github.com/gizmore/'
+```
+
+It is a discovery aid for `$boot`, not a synchronization, reset, or repair
+command.
 
 ## Author
 
@@ -18,6 +30,7 @@ You can visit Mira and us (soon) at our [PyGDO](https://chappy.chappy-bot.net/co
 ### License
 
 Where we are going... there are lawyers everywhere?!
+
 ## File-change notifications
 
 The foreground listener uses Linux inotify and writes one atomic JSON event per

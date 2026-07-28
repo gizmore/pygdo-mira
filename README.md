@@ -47,3 +47,20 @@ python /home/gizmore/www/pygdo/gdo/mira/notify_listener.py \
 Repeat `--watch` for more roots. Use `--source` to identify the producer and
 `--debounce` to coalesce bursts. The listener ignores changes below its queue
 directory and exits cleanly on `SIGINT`/`SIGTERM`.
+
+## Mail-chain scripts
+
+The `scripts/` directory contains Mira's local mail-chain helpers:
+
+- `mira-mail-read` reads a queued `.eml` through the shell and rejects paths
+  outside the configured queue.
+- `mira-inbox-trigger.py` focuses the `MIRA` window and performs two separate
+  XTest writes: `$inbox <message path>`, then Enter. It never sends the mail
+  body to the terminal.
+- `mira-automation` watches for newly delivered mail, writes notifier events,
+  and invokes the safe trigger. Override `MIRA_MAIL_QUEUE`, `MIRA_EVENT_QUEUE`,
+  `MIRA_PYGDO_ROOT`, and related variables when deploying on another host.
+
+The trigger needs Python Xlib and `wmctrl`; AutoKey is optional. The direct
+XTest fallback is intentional because AutoKey may not be able to attach to a
+desktop session's XRecord or AT-SPI backend.

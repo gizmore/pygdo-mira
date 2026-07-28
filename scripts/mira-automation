@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+QUEUE_ROOT="${MIRA_MAIL_QUEUE:-/home/mira/inbound/queue}"
+QUEUE="${MIRA_EVENT_QUEUE:-$QUEUE_ROOT/file_changes}"
+PYTHON="${MIRA_PYTHON:-python3}"
+PYGDO_ROOT="${MIRA_PYGDO_ROOT:-/home/gizmore/www/pygdo}"
+LISTENER="${MIRA_NOTIFY_LISTENER:-$PYGDO_ROOT/gdo/mira/notify_listener.py}"
+INBOX_TRIGGER="${MIRA_INBOX_TRIGGER:-$PYGDO_ROOT/gdo/mira/scripts/mira-inbox-trigger.py}"
+
+mkdir -p "$QUEUE"
+
+latest_mail() {
+    find "$QUEUE_ROOT" -maxdepth 1 -type f -name '*.eml' -printf '%T@ %p\n' |
+        sort -n | tail -1 | cut -d' ' -f2-
+}
+
+last_mail="$(latest_mail)"
+
+"$PYTHON" "$LISTENER" \
+    --watch "$QUEUE_ROOT" \
+    --queue "$QUEUE" \
+    --source mail &
+listener_pid=$!
+
+cleanup() {
+    kill "$listener_pid" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# AutoKey is optional. The XTest fallback remains usable if its XRecord or
+# AT-SPI backend cannot attach to the desktop session.
+if command -v autokey-gtk >/dev/null 2>&1; then
+    autokey-gtk >/dev/null 2>&1 &
+fi
+
+while true; do
+    current_mail="$(latest_mail)"
+    if [[ -n "$current_mail" && "$current_mail" != "$last_mail" ]]; then
+        "$INBOX_TRIGGER" "$current_mail" >/dev/null 2>&1 || true
+        last_mail="$current_mail"
+    fi
+    sleep 5
+done

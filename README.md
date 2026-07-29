@@ -94,3 +94,11 @@ The durable repair is to run a small, audited AutoKey service as the desktop
 owner (`gizmore`) and expose only the named `Mira Ping` action to Mira's cron
 job. Do not grant Mira access to Gizmore's full desktop D-Bus session merely
 to make `autokey-run` work.
+
+## Scheduled work packets
+
+`scripts/mira-work-dispatch.py --next` reads only the `## Next` section of
+Mira's private TODO. It emits a work packet only for the first item marked
+`- [ready] ...`; with no ready item it is silent. This makes the scheduler an
+intentional work dispatcher rather than an activity reminder. A ready item
+must describe one bounded, safe task and its next verifiable step.

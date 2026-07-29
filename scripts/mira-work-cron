@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+packet="$(/usr/bin/python3 "$SCRIPT_DIR/mira-work-dispatch.py" --next)"
+
+[[ -n "$packet" ]] || exit 0
+MIRA_MESSAGE="$packet" exec "$SCRIPT_DIR/mira-ten-minute-ping.py"

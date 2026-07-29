@@ -10,7 +10,8 @@ from Xlib.ext import xtest
 
 
 WINDOW_TITLE = os.environ.get("MIRA_WINDOW_TITLE", "MIRA")
-MESSAGE = "Your ten minute ping. Do $cc or $routine  "
+DEFAULT_MESSAGE = "Your ten minute ping. Do $cc or $routine  "
+MESSAGE = os.environ.get("MIRA_MESSAGE", DEFAULT_MESSAGE)
 XK_RETURN = 0xFF0D
 XK_SHIFT = 0xFFE1
 XK_CONTROL_L = 0xFFE3
@@ -70,6 +71,8 @@ def send_enter(window_id: int) -> None:
 
 
 def main() -> None:
+    if "\n" in MESSAGE or "\r" in MESSAGE:
+        raise ValueError("MIRA_MESSAGE must be a single line")
     window_id = mira_window_id()
     send_text(window_id)
     time.sleep(0.3)

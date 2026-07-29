@@ -64,3 +64,30 @@ The `scripts/` directory contains Mira's local mail-chain helpers:
 The trigger needs Python Xlib and `wmctrl`; AutoKey is optional. The direct
 XTest fallback is intentional because AutoKey may not be able to attach to a
 desktop session's XRecord or AT-SPI backend.
+
+## AutoKey and `MIRA` terminal gotchas
+
+The `MIRA` terminal is owned by Gizmore's X11 desktop session, while the
+automation helpers normally run as user `mira`. This boundary matters:
+
+- AutoKey's known-good pattern is two calls: `keyboard.send_keys(payload)`, a
+  short pause, then `keyboard.send_key("ENTER")`. Keep the submission key out
+  of the text payload.
+- `autokey-run` only works when an AutoKey daemon is already running in the
+  **same D-Bus session**. Mira cannot connect to Gizmore's private
+  `/run/user/1000/bus` by default.
+- Starting `autokey-gtk` as Mira against Gizmore's display currently crashes:
+  AT-SPI/XRecord access is denied and the process exits with `SIGTRAP`.
+  Starting it from Mira's cron job therefore does not make `autokey-run`
+  available.
+- Direct Python XTest can focus the exact window and type text, but injected
+  Return/Ctrl+J semantics are not yet proven to submit Codex's multiline
+  editor. Treat it as an unverified fallback, not a reliable wake-up channel.
+- Focus-stealing automation can race with a human typing. Target the exact
+  title `MIRA`, use a lock, keep messages short, and add a visible delivery
+  acknowledgement before relying on it for mail or scheduled work.
+
+The durable repair is to run a small, audited AutoKey service as the desktop
+owner (`gizmore`) and expose only the named `Mira Ping` action to Mira's cron
+job. Do not grant Mira access to Gizmore's full desktop D-Bus session merely
+to make `autokey-run` work.

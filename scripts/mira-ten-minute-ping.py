@@ -10,7 +10,7 @@ from Xlib.ext import xtest
 
 
 WINDOW_TITLE = os.environ.get("MIRA_WINDOW_TITLE", "MIRA")
-MESSAGE = "Your ten minute ping. Do $cc or $routine "
+MESSAGE = "Your ten minute ping. Do $cc or $routine  "
 XK_RETURN = 0xFF0D
 XK_SHIFT = 0xFFE1
 XK_CONTROL_L = 0xFFE3
@@ -60,14 +60,12 @@ def send_text(window_id: int) -> None:
 
 def send_enter(window_id: int) -> None:
     dpy = focus_window(window_id)
-    # The terminal accepts Ctrl+J as Enter more reliably than an injected
-    # Return keysym. Keep this as a second, separately focused X write.
-    control = list(dpy.keysym_to_keycodes(XK_CONTROL_L))[0][0]
-    newline = list(dpy.keysym_to_keycodes(ord("j")))[0][0]
-    xtest.fake_input(dpy, X.KeyPress, control)
-    xtest.fake_input(dpy, X.KeyPress, newline)
-    xtest.fake_input(dpy, X.KeyRelease, newline)
-    xtest.fake_input(dpy, X.KeyRelease, control)
+    # Codex uses a multiline editor. Two physical Return events submit after
+    # the Markdown hard-break spaces instead of adding a Ctrl+J line break.
+    keypress(dpy, "\n")
+    dpy.sync()
+    time.sleep(0.1)
+    keypress(dpy, "\n")
     dpy.sync()
 
 

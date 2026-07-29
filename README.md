@@ -80,9 +80,12 @@ automation helpers normally run as user `mira`. This boundary matters:
   AT-SPI/XRecord access is denied and the process exits with `SIGTRAP`.
   Starting it from Mira's cron job therefore does not make `autokey-run`
   available.
-- Direct Python XTest can focus the exact window and type text, but injected
-  Return/Ctrl+J semantics are not yet proven to submit Codex's multiline
-  editor. Treat it as an unverified fallback, not a reliable wake-up channel.
+- Direct Python XTest can focus the exact window and type text. Codex treats
+  `Ctrl+J` as a multiline newline, not submission. The current ping uses two
+  trailing spaces followed by two separate physical Return events; its
+  scheduled 20:00 test on 2026-07-29 reached this conversation as a submitted
+  message. Keep this behavior under observation rather than assuming it is
+  portable across terminal or Codex versions.
 - Focus-stealing automation can race with a human typing. Target the exact
   title `MIRA`, use a lock, keep messages short, and add a visible delivery
   acknowledgement before relying on it for mail or scheduled work.

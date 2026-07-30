@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Run the PyGDO Dog with a stable, tail-able combined stdout/stderr log.
+set -euo pipefail
+
+project_dir=/home/gizmore/www/pygdo
+log_file=/home/mira/dog-live.log
+
+mkdir -p -- "$(dirname -- "$log_file")"
+exec "$project_dir/bin/mira" '$launch' "$@" >>"$log_file" 2>&1

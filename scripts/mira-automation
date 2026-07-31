@@ -28,12 +28,6 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# AutoKey is optional. The XTest fallback remains usable if its XRecord or
-# AT-SPI backend cannot attach to the desktop session.
-if command -v autokey-gtk >/dev/null 2>&1; then
-    autokey-gtk >/dev/null 2>&1 &
-fi
-
 while true; do
     current_mail="$(latest_mail)"
     if [[ -n "$current_mail" && "$current_mail" != "$last_mail" ]]; then

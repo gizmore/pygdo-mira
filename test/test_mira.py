@@ -38,7 +38,7 @@ class module_mira_Test(GDOTestCase):
         with patch('gdo.mira.util.subprocess.run') as run, patch('gdo.mira.util.time.sleep'):
             send_to_mira('$changes gdo/mira/util.py', target='test:0.0')
         calls = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', '-l', '--', 'blub'], calls[0])
+        self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', '-l', '--', 'quack'], calls[0])
         self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', 'C-c'], calls[1])
         self.assertEqual(['tmux', 'load-buffer', '-b', 'mira-delivery', '-'], calls[2])
 

@@ -24,7 +24,10 @@ def send_to_mira(text: str, *, submit: bool = True, target: str | None = None) -
 
     tmux_target = target or os.environ.get('MIRA_TMUX_TARGET', DEFAULT_MIRA_TMUX_TARGET)
     if submit:
-        # Discard any partially typed prompt before inserting an asynchronous event.
+        # Avoid an empty Ctrl-C, which exits Mira's terminal. The harmless text
+        # makes Ctrl-C cancel the current prompt instead.
+        subprocess.run(['tmux', 'send-keys', '-t', tmux_target, '-l', '--', 'blub'], check=True)
+        time.sleep(0.1)
         subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'C-c'], check=True)
         time.sleep(0.1)
 

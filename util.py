@@ -24,7 +24,12 @@ def send_to_mira(text: str, *, submit: bool = True, target: str | None = None) -
 
     tmux_target = target or os.environ.get('MIRA_TMUX_TARGET', DEFAULT_MIRA_TMUX_TARGET)
     payload = text + ('  ' if submit else '')
-    subprocess.run(['tmux', 'send-keys', '-t', tmux_target, '-l', '--', payload], check=True)
+    buffer_name = 'mira-delivery'
+    subprocess.run(['tmux', 'load-buffer', '-b', buffer_name, '-'], input=payload, text=True, check=True)
+    try:
+        subprocess.run(['tmux', 'paste-buffer', '-t', tmux_target, '-b', buffer_name, '-p'], check=True)
+    finally:
+        subprocess.run(['tmux', 'delete-buffer', '-b', buffer_name], check=False)
 
     if submit:
         time.sleep(0.1)

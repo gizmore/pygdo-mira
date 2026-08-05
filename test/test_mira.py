@@ -34,13 +34,12 @@ class module_mira_Test(GDOTestCase):
         out = cli_plug(giz, "$mira.overview")
         self.assertIsNotNone(out, '$mira.overview does not work.')
 
-    def test_04_send_to_mira_clears_prompt_before_pasting(self):
+    def test_04_send_to_mira_cancels_prompt_before_pasting(self):
         with patch('gdo.mira.util.subprocess.run') as run, patch('gdo.mira.util.time.sleep'):
             send_to_mira('$changes gdo/mira/util.py', target='test:0.0')
         calls = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', 'Enter'], calls[0])
-        self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', 'Enter'], calls[1])
-        self.assertEqual(['tmux', 'load-buffer', '-b', 'mira-delivery', '-'], calls[2])
+        self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', 'C-c'], calls[0])
+        self.assertEqual(['tmux', 'load-buffer', '-b', 'mira-delivery', '-'], calls[1])
 
     def test_02_overview_web(self):
         giz =  cli_gizmore()

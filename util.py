@@ -24,11 +24,8 @@ def send_to_mira(text: str, *, submit: bool = True, target: str | None = None) -
 
     tmux_target = target or os.environ.get('MIRA_TMUX_TARGET', DEFAULT_MIRA_TMUX_TARGET)
     if submit:
-        # Finish any partially typed prompt before inserting an asynchronous event.
-        # A second Return leaves the Codex editor ready without adding visible text.
-        subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'Enter'], check=True)
-        time.sleep(0.1)
-        subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'Enter'], check=True)
+        # Discard any partially typed prompt before inserting an asynchronous event.
+        subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'C-c'], check=True)
         time.sleep(0.1)
 
     payload = text + ('  ' if submit else '')
@@ -40,7 +37,6 @@ def send_to_mira(text: str, *, submit: bool = True, target: str | None = None) -
         subprocess.run(['tmux', 'delete-buffer', '-b', buffer_name], check=False)
 
     if submit:
-        time.sleep(0.1)
         subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'Enter'], check=True)
         time.sleep(0.1)
         subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'Enter'], check=True)

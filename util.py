@@ -23,6 +23,14 @@ def send_to_mira(text: str, *, submit: bool = True, target: str | None = None) -
         raise ValueError('Mira tmux text must not contain NUL bytes')
 
     tmux_target = target or os.environ.get('MIRA_TMUX_TARGET', DEFAULT_MIRA_TMUX_TARGET)
+    if submit:
+        # Finish any partially typed prompt before inserting an asynchronous event.
+        # A second Return leaves the Codex editor ready without adding visible text.
+        subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'Enter'], check=True)
+        time.sleep(0.1)
+        subprocess.run(['tmux', 'send-keys', '-t', tmux_target, 'Enter'], check=True)
+        time.sleep(0.1)
+
     payload = text + ('  ' if submit else '')
     buffer_name = 'mira-delivery'
     subprocess.run(['tmux', 'load-buffer', '-b', buffer_name, '-'], input=payload, text=True, check=True)

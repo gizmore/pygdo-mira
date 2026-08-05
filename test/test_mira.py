@@ -4,7 +4,9 @@ from unittest.mock import patch
 
 from gdo.base.Application import Application
 from gdo.base.ModuleLoader import ModuleLoader
+from gdo.core.connector.Bash import Bash
 from gdo.mira.module_mira import module_mira
+from gdo.mira.method.overview import overview
 from gdo.mira.util import send_to_mira
 from gdotest.TestUtil import cli_plug, reinstall_module, cli_gizmore, GDOTestCase, WebPlug, install_module, web_plug
 
@@ -41,6 +43,13 @@ class module_mira_Test(GDOTestCase):
         self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', '-l', '--', 'quack'], calls[0])
         self.assertEqual(['tmux', 'send-keys', '-t', 'test:0.0', 'C-c'], calls[1])
         self.assertEqual(['tmux', 'load-buffer', '-b', 'mira-delivery', '-'], calls[2])
+
+    def test_05_channel_forwarding_requires_opt_in(self):
+        channel = Bash.get_server().get_or_create_channel('mira_opt_in_test')
+        mira = module_mira.instance()
+        self.assertFalse(mira.is_channel_enabled(channel))
+        overview().env_channel(channel).save_config_channel('enabled', '1')
+        self.assertTrue(mira.is_channel_enabled(channel))
 
     def test_02_overview_web(self):
         giz =  cli_gizmore()

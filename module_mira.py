@@ -96,8 +96,15 @@ class module_mira(GDO_Module):
     async def on_sent_message(self, message: Message):
         await self.on_message(message, True)
 
+    def is_channel_enabled(self, channel) -> bool:
+        from gdo.mira.method.overview import overview
+        setting = overview().env_channel(channel)._get_config_channel('enabled', channel)
+        return bool(setting.get_value())
+
     async def on_message(self, message: Message, out_instead_of_in: bool=False):
         channel = message._env_channel if message._env_channel else None
+        if channel and not self.is_channel_enabled(channel):
+            return
         ibdes = Time.get_date()
 
         if channel:

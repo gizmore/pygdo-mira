@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import errno
+import hashlib
 import heapq
+import json
 import os
 import select
 import sys
@@ -30,6 +32,62 @@ IN_IGNORED = flags.IGNORED
 IN_ISDIR = flags.ISDIR
 WATCH_MASK = IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF
 IGNORED_DIRS = {'.git', '__pycache__'}
+ACKNOWLEDGEMENTS = Path('/home/mira/.pygdo/code-change-acknowledgements.json')
+
+
+class ChangeAcknowledgements:
+    """Remember exact source revisions that Mira already knows about."""
+
+    def __init__(self, path: Path = ACKNOWLEDGEMENTS):
+        self.path = path
+
+    def load(self) -> dict[str, dict]:
+        try:
+            with self.path.open(encoding='utf-8') as handle:
+                data = json.load(handle)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def save(self, entries: dict[str, dict]) -> None:
+        self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        temporary = self.path.with_suffix('.tmp')
+        with temporary.open('w', encoding='utf-8') as handle:
+            json.dump(entries, handle, sort_keys=True)
+        os.chmod(temporary, 0o600)
+        temporary.replace(self.path)
+
+    @staticmethod
+    def digest(path: Path) -> str | None:
+        try:
+            with path.open('rb') as handle:
+                return hashlib.file_digest(handle, 'sha256').hexdigest()
+        except FileNotFoundError:
+            return None
+
+    def acknowledge(self, path: Path, expires_at: float) -> None:
+        digest = self.digest(path)
+        if digest is None:
+            raise FileNotFoundError(path)
+        entries = self.load()
+        entry = entries.setdefault(str(path), {'revisions': []})
+        revisions = entry.setdefault('revisions', [])
+        revisions[:] = [revision for revision in revisions if revision.get('sha256') != digest]
+        revisions.append({'sha256': digest, 'expires_at': expires_at})
+        self.save(entries)
+
+    def consume_if_known(self, path: Path) -> bool:
+        entries = self.load()
+        entry = entries.get(str(path))
+        if entry is None:
+            return False
+        entries.pop(str(path), None)
+        self.save(entries)
+        revisions = entry.get('revisions')
+        if revisions is None:  # Upgrade the one-revision format from earlier watcher versions.
+            revisions = [entry]
+        digest = self.digest(path)
+        return any(revision.get('expires_at', 0) >= time.time() and revision.get('sha256') == digest for revision in revisions)
 
 
 class Inotify:
@@ -61,6 +119,7 @@ class CodeChangeWatcher:
         self.paths: dict[int, Path] = {}
         self.deadlines: dict[Path, float] = {}
         self.queue: list[tuple[float, Path]] = []
+        self.acknowledgements = ChangeAcknowledgements()
 
     @staticmethod
     def wanted_directory(path: Path) -> bool:
@@ -94,6 +153,9 @@ class CodeChangeWatcher:
             if self.deadlines.get(path) != deadline:
                 continue
             del self.deadlines[path]
+            if self.acknowledgements.consume_if_known(path):
+                print(f'acknowledged: {path}', flush=True)
+                continue
             try:
                 send_to_mira(f'$changes {path}')
                 print(f'notified: {path}', flush=True)
@@ -139,12 +201,21 @@ def main() -> int:
                         help='PyGDO project directory; its gdo/ subtree is watched')
     parser.add_argument('--time', default=180.0, type=float,
                         help='quiet time in seconds before notifying (default: 180)')
+    parser.add_argument('--ack', type=Path, metavar='PATH',
+                        help='acknowledge the current revision of one Python source file and exit')
     args = parser.parse_args()
     if args.time <= 0:
         parser.error('--time must be positive')
     source_root = args.dir.resolve() / 'gdo'
     if not source_root.is_dir():
         parser.error(f'no gdo directory under {args.dir}')
+    if args.ack:
+        path = args.ack.resolve(strict=False)
+        if path.suffix != '.py' or not path.is_relative_to(source_root):
+            parser.error(f'--ack path must be a Python file inside {source_root}')
+        ChangeAcknowledgements().acknowledge(path, time.time() + max(60, args.time * 2))
+        print(f'acknowledged revision: {path}')
+        return 0
     CodeChangeWatcher(source_root, args.time).run()
     return 0
 

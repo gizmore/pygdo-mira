@@ -47,8 +47,9 @@ class module_mira_Test(GDOTestCase):
     def test_05_channel_forwarding_requires_opt_in(self):
         channel = Bash.get_server().get_or_create_channel('mira_opt_in_test')
         mira = module_mira.instance()
+        overview().env_channel(channel).save_config_channel('disabled', '1')
         self.assertFalse(mira.is_channel_enabled(channel))
-        overview().env_channel(channel).save_config_channel('enabled', '1')
+        overview().env_channel(channel).save_config_channel('disabled', '0')
         self.assertTrue(mira.is_channel_enabled(channel))
 
     def test_02_overview_web(self):

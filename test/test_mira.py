@@ -5,7 +5,7 @@ from unittest.mock import patch
 from gdo.base.Application import Application
 from gdo.base.ModuleLoader import ModuleLoader
 from gdo.core.connector.Bash import Bash
-from gdo.mira.module_mira import module_mira
+from gdo.mira.module_mira import MIRA_ADDRESS, module_mira
 from gdo.mira.method.overview import overview
 from gdo.mira.util import send_to_mira
 from gdotest.TestUtil import cli_plug, reinstall_module, cli_gizmore, GDOTestCase, WebPlug, install_module, web_plug
@@ -51,6 +51,10 @@ class module_mira_Test(GDOTestCase):
         self.assertFalse(mira.is_channel_enabled(channel))
         overview().env_channel(channel).save_config_channel('disabled', '0')
         self.assertTrue(mira.is_channel_enabled(channel))
+
+    def test_06_mira_address_accepts_natural_punctuation(self):
+        for text in ('mira', 'Mira:', 'mira....', 'Mira?'):
+            self.assertIsNotNone(MIRA_ADDRESS.match(text), text)
 
     def test_02_overview_web(self):
         giz =  cli_gizmore()

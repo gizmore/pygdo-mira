@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from gdo.ui.GDT_Page import GDT_Page
 
 
-MIRA_ADDRESS = re.compile(r'^mira(?:[ :,]|$)', re.IGNORECASE)
+MIRA_ADDRESS = re.compile(r'^mira(?:[ :,\.!?]|$)', re.IGNORECASE)
 
 
 class module_mira(GDO_Module):

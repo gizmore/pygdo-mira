@@ -1,0 +1,153 @@
+#!/home/gizmore/www/pygdo/.venv/bin/python
+"""Notify Mira after a Python source file has been quiet for a debounce period."""
+
+from __future__ import annotations
+
+import argparse
+import errno
+import heapq
+import os
+import select
+import sys
+import time
+from pathlib import Path
+
+from inotify_simple import INotify, flags
+
+PROJECT_DIR = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(PROJECT_DIR))
+
+from gdo.mira.util import send_to_mira
+
+
+IN_CLOSE_WRITE = flags.CLOSE_WRITE
+IN_MOVED_TO = flags.MOVED_TO
+IN_CREATE = flags.CREATE
+IN_DELETE = flags.DELETE
+IN_DELETE_SELF = flags.DELETE_SELF
+IN_MOVE_SELF = flags.MOVE_SELF
+IN_IGNORED = flags.IGNORED
+IN_ISDIR = flags.ISDIR
+WATCH_MASK = IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF
+IGNORED_DIRS = {'.git', '__pycache__'}
+
+
+class Inotify:
+    def __init__(self):
+        self._inotify = INotify(nonblocking=True)
+        self.fd = self._inotify.fd
+
+    def add_watch(self, path: Path) -> int:
+        try:
+            return self._inotify.add_watch(str(path), WATCH_MASK)
+        except OSError as error:
+            if error.errno in (errno.ENOENT, errno.ENOTDIR, errno.EACCES):
+                return -1
+            raise
+
+    def read(self) -> list[tuple[int, int, str]]:
+        try:
+            events = self._inotify.read(timeout=0)
+        except BlockingIOError:
+            return []
+        return [(event.wd, event.mask, event.name) for event in events]
+
+
+class CodeChangeWatcher:
+    def __init__(self, root: Path, delay: float):
+        self.root = root.resolve()
+        self.delay = delay
+        self.inotify = Inotify()
+        self.paths: dict[int, Path] = {}
+        self.deadlines: dict[Path, float] = {}
+        self.queue: list[tuple[float, Path]] = []
+
+    @staticmethod
+    def wanted_directory(path: Path) -> bool:
+        return path.name not in IGNORED_DIRS
+
+    def add_tree(self, directory: Path, report_existing: bool = False) -> None:
+        if not directory.is_dir() or not self.wanted_directory(directory):
+            return
+        for current, directories, files in os.walk(directory):
+            current_path = Path(current)
+            directories[:] = [name for name in directories if name not in IGNORED_DIRS]
+            watch = self.inotify.add_watch(current_path)
+            if watch >= 0:
+                self.paths[watch] = current_path
+            if report_existing:
+                for filename in files:
+                    path = current_path / filename
+                    if path.suffix == '.py':
+                        self.changed(path)
+
+    def changed(self, path: Path) -> None:
+        path = path.resolve(strict=False)
+        deadline = time.monotonic() + self.delay
+        self.deadlines[path] = deadline
+        heapq.heappush(self.queue, (deadline, path))
+
+    def flush_changes(self) -> None:
+        now = time.monotonic()
+        while self.queue and self.queue[0][0] <= now:
+            deadline, path = heapq.heappop(self.queue)
+            if self.deadlines.get(path) != deadline:
+                continue
+            del self.deadlines[path]
+            try:
+                send_to_mira(f'$changes {path}')
+                print(f'notified: {path}', flush=True)
+            except Exception as error:
+                print(f'watch_code_changes: could not notify for {path}: {error}', file=sys.stderr, flush=True)
+
+    def timeout(self) -> float | None:
+        while self.queue and self.deadlines.get(self.queue[0][1]) != self.queue[0][0]:
+            heapq.heappop(self.queue)
+        if not self.queue:
+            return None
+        return max(0.0, self.queue[0][0] - time.monotonic())
+
+    def handle_events(self) -> None:
+        for watch, mask, name in self.inotify.read():
+            directory = self.paths.get(watch)
+            if mask & IN_IGNORED:
+                self.paths.pop(watch, None)
+                continue
+            if directory is None:
+                continue
+            path = directory / name if name else directory
+            if mask & IN_ISDIR:
+                if mask & (IN_CREATE | IN_MOVED_TO):
+                    self.add_tree(path, report_existing=True)
+                continue
+            if path.suffix == '.py' and mask & (IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE | IN_DELETE):
+                self.changed(path)
+
+    def run(self) -> None:
+        self.add_tree(self.root)
+        print(f'watching {self.root}/**/*.py (debounce {self.delay:g}s)', flush=True)
+        while True:
+            ready, _unused, _errors = select.select([self.inotify.fd], [], [], self.timeout())
+            if ready:
+                self.handle_events()
+            self.flush_changes()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--dir', default='/home/gizmore/www/pygdo', type=Path,
+                        help='PyGDO project directory; its gdo/ subtree is watched')
+    parser.add_argument('--time', default=180.0, type=float,
+                        help='quiet time in seconds before notifying (default: 180)')
+    args = parser.parse_args()
+    if args.time <= 0:
+        parser.error('--time must be positive')
+    source_root = args.dir.resolve() / 'gdo'
+    if not source_root.is_dir():
+        parser.error(f'no gdo directory under {args.dir}')
+    CodeChangeWatcher(source_root, args.time).run()
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

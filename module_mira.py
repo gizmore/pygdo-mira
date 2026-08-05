@@ -1,18 +1,29 @@
 from __future__ import annotations
 
+import re
+from urllib.parse import quote
+
+from gdo.base.Message import Message
 from gdo.base.Application import Application
 from gdo.base.GDO_Module import GDO_Module
 from gdo.base.GDO import GDO
 from gdo.base.GDT import GDT
+from gdo.base.Logger import Logger
+from gdo.base.Util import Files, Strings
 from gdo.core.GDO_User import GDO_User
 from gdo.core.connector.Bash import Bash
 from gdo.date.GDT_Duration import GDT_Duration
+from gdo.date.Time import Time
+from gdo.mira.util import send_to_mira
 from gdo.ui.GDT_Link import GDT_Link
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from gdo.ui.GDT_Page import GDT_Page
+
+
+MIRA_ADDRESS = re.compile(r'^mira(?:[ :,]|$)', re.IGNORECASE)
 
 
 class module_mira(GDO_Module):
@@ -23,6 +34,11 @@ class module_mira(GDO_Module):
 
     def gdo_classes(self) -> list[type[GDO]]:
         return []
+
+    def gdo_dependencies(self) -> list:
+        return [
+            'Chat',
+        ]
 
     async def gdo_install(self):
         pass
@@ -63,7 +79,50 @@ class module_mira(GDO_Module):
 
     def gdo_subscribe_events(self):
         Application.EVENTS.add_timer_async(self.cfg_heartbeat_delay(), self.mira_is_alive, 69_696_969)
+        Application.EVENTS.subscribe_times('new_message', self.on_new_message, 2_238_239_328)
+        Application.EVENTS.subscribe_times('msg_sent', self.on_sent_message, 2_238_239_328)
+        self.subscribe('clear_cache', self.on_cc)
+
+    async def on_cc(self):
+        pass  # Conversations shall survive a cache clear and Dog restart.
 
     async def mira_is_alive(self):
         mira = await self.get_mira()
         await mira.send('huhu_mira')
+
+    async def on_new_message(self, message: Message):
+        await self.on_message(message, False)
+
+    async def on_sent_message(self, message: Message):
+        await self.on_message(message, True)
+
+    async def on_message(self, message: Message, out_instead_of_in: bool=False):
+        channel = message._env_channel if message._env_channel else None
+        ibdes = Time.get_date()
+
+        if channel:
+            ibdes += " " + channel.get_name()
+            if channel.get_server() != message._env_server:
+                ibdes += f" {channel.get_server().get_name()}"
+        else:
+            ibdes += ' #-'
+
+        ibdes += f" {message._env_user.get_name()}{{{message._env_user.get_server().get_name()}}}"
+        payload = (message._gdt_result.render_markdown() if message._gdt_result else message._result) if out_instead_of_in else message._message
+        ibdes += f" {payload}\n"
+
+        context_user = getattr(message, '_env_target_user', message._env_user) if out_instead_of_in else message._env_user
+        path = Application.temp_path(f'dog_mira/{message._env_server.get_name()}/')
+        path += f"channel/{quote(channel.get_name(), safe='')}.ibdes" if channel else f"private/{quote(context_user.get_name(), safe='')}.ibdes"
+
+        Files.create_dir(Strings.rsubstr_to(path, '/'), 0o0770)
+        Files.append_content(path, ibdes)
+
+        if MIRA_ADDRESS.match(payload) and out_instead_of_in == False:
+            payload = Files.get_contents(path)
+            try:
+                send_to_mira(f"$chat\n{payload}")
+            except Exception as error:
+                Logger.exception(error)
+            else:
+                Files.remove(path)

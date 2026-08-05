@@ -37,7 +37,7 @@ class module_mira(GDO_Module):
 
     def gdo_dependencies(self) -> list:
         return [
-            'Chat',
+            'chat',
         ]
 
     async def gdo_install(self):

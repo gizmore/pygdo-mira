@@ -46,10 +46,14 @@ class module_mira(GDO_Module):
     def gdo_module_config(self) -> list[GDT]:
         return [
             GDT_Duration('heartbeat_delay').not_null().units(4, True).initial_value(1337.420320),
+            GDT_Duration('context_max_age').not_null().min(Time.ONE_MINUTE).max(Time.ONE_DAY).initial('15m'),
         ]
 
     def cfg_heartbeat_delay(self) -> float:
         return self.get_config_value('heartbeat_delay')
+
+    def cfg_context_max_age(self) -> float:
+        return self.get_config_value('context_max_age')
 
     def gdo_user_config(self) -> list[GDT]:
         return []
@@ -101,6 +105,18 @@ class module_mira(GDO_Module):
         setting = overview().env_channel(channel)._get_config_channel('disabled', channel)
         return not setting.get_value()
 
+    def recent_context(self, payload: str) -> str:
+        cut = Application.TIME - self.cfg_context_max_age()
+        lines = []
+        for line in payload.splitlines(keepends=True):
+            try:
+                timestamp = Time.parse_time_db(line[:26])
+            except (TypeError, ValueError):
+                continue
+            if timestamp >= cut:
+                lines.append(line)
+        return ''.join(lines)
+
     async def on_message(self, message: Message, out_instead_of_in: bool=False):
         channel = message._env_channel if message._env_channel else None
         if channel and not self.is_channel_enabled(channel):
@@ -126,7 +142,10 @@ class module_mira(GDO_Module):
         Files.append_content(path, ibdes)
 
         if MIRA_ADDRESS.match(payload) and out_instead_of_in == False:
-            payload = Files.get_contents(path)
+            payload = self.recent_context(Files.get_contents(path))
+            if not payload:
+                Files.remove(path)
+                return
             try:
                 send_to_mira(f"$chat\n{payload}")
             except Exception as error:

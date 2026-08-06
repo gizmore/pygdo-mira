@@ -8,6 +8,7 @@ from gdo.core.connector.Bash import Bash
 from gdo.mira.module_mira import MIRA_ADDRESS, module_mira
 from gdo.mira.method.overview import overview
 from gdo.mira.util import send_to_mira
+from gdo.date.Time import Time
 from gdotest.TestUtil import cli_plug, reinstall_module, cli_gizmore, GDOTestCase, WebPlug, install_module, web_plug
 
 
@@ -55,6 +56,13 @@ class module_mira_Test(GDOTestCase):
     def test_06_mira_address_accepts_natural_punctuation(self):
         for text in ('mira', 'Mira:', 'mira....', 'Mira?'):
             self.assertIsNotNone(MIRA_ADDRESS.match(text), text)
+
+    def test_07_context_discards_expired_lines(self):
+        mira = module_mira.instance()
+        old = Time.get_date(Application.TIME - mira.cfg_context_max_age() - 1)
+        recent = Time.get_date(Application.TIME - 1)
+        payload = f'{old} #- old{{bash}} mira: stale\n{recent} #- gizmore{{bash}} mira: current\n'
+        self.assertEqual(f'{recent} #- gizmore{{bash}} mira: current\n', mira.recent_context(payload))
 
     def test_02_overview_web(self):
         giz =  cli_gizmore()
